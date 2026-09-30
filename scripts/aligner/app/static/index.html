@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Damage Alignment & SAM Semantic Masking Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>DamageMask Studio</h1>
+                    <p class="subtitle">SIFT Alignment & SAM Semantic Mask Generator for Siamese Swin-UNet</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span class="badge badge-accent">Siamese Swin-UNet Ready</span>
+                <span class="badge badge-outline">Class IDs 0–5 Direct</span>
+            </div>
+        </header>
+
+        <!-- Main Content Layout -->
+        <main class="app-main">
+            <!-- Sidebar Controls -->
+            <aside class="control-panel glass-panel">
+                <h2>Pipeline Controls</h2>
+                
+                <form id="align-form">
+                    <div class="form-group">
+                        <label for="before-file">
+                            <span class="step-num">1</span> Pre-Disaster ("Before") Image / Sequence PNGs
+                        </label>
+                        <div class="file-dropzone" id="dropzone-before">
+                            <input type="file" id="before-file" accept="image/*" multiple required>
+                            <div class="dropzone-text">
+                                <span class="file-name" id="name-before">Select Image or Video Frames (PNGs)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="after-file">
+                            <span class="step-num">2</span> Post-Disaster ("After") Image <small>(Reference Frame)</small>
+                        </label>
+                        <div class="file-dropzone" id="dropzone-after">
+                            <input type="file" id="after-file" accept="image/*" required>
+                            <div class="dropzone-text">
+                                <span class="file-name" id="name-after">Select or Drop After Image</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ann-file">
+                            <span class="step-num">3</span> Roboflow Annotations <small>(COCO/YOLO/JSON)</small>
+                        </label>
+                        <div class="file-dropzone" id="dropzone-ann">
+                            <input type="file" id="ann-file" accept=".json,.txt">
+                            <div class="dropzone-text">
+                                <span class="file-name" id="name-ann">Select Roboflow JSON or YOLO TXT</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sam-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="toggle-label">Run Local SAM / Edge Refine on Before Image</span>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary" id="btn-process">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            Align & Generate Masks
+                        </button>
+                        
+                        <button type="button" class="btn btn-secondary" id="btn-export-roboflow">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export Roboflow SAM ZIP
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Class Legend -->
+                <div class="class-legend">
+                    <h3>Semantic Classes (0–6)</h3>
+                    <div class="legend-items">
+                        <div class="legend-item"><span class="color-dot c0"></span><span class="c-name">0: Background</span></div>
+                        <div class="legend-item"><span class="color-dot c1"></span><span class="c-name">1: Intact Building</span></div>
+                        <div class="legend-item"><span class="color-dot c2"></span><span class="c-name">2: Minor Damage</span></div>
+                        <div class="legend-item"><span class="color-dot c3"></span><span class="c-name">3: Major Damage</span></div>
+                        <div class="legend-item"><span class="color-dot c4"></span><span class="c-name">4: Destroyed</span></div>
+                        <div class="legend-item"><span class="color-dot c5"></span><span class="c-name">5: Unclassified</span></div>
+                        <div class="legend-item"><span class="color-dot c6"></span><span class="c-name">6: Obscured Building</span></div>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- Display Stage -->
+            <section class="display-stage glass-panel">
+                <!-- Top Metrics Bar -->
+                <div class="metrics-bar" id="metrics-bar">
+                    <div class="metric-card">
+                        <span class="m-label">Best Frame Match</span>
+                        <span class="m-value" id="m-frame" style="font-size:0.95rem;">Single File</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="m-label">SIFT Inliers</span>
+                        <span class="m-value" id="m-inliers">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="m-label">Inlier Ratio</span>
+                        <span class="m-value" id="m-ratio">0.00</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="m-label">Roboflow Instances</span>
+                        <span class="m-value" id="m-instances">0</span>
+                    </div>
+                </div>
+
+
+                <!-- Tabs -->
+                <div class="stage-tabs">
+                    <button class="tab-btn active" data-tab="tab-semantic">Side-by-Side Semantic Overlay</button>
+                    <button class="tab-btn" data-tab="tab-standalone-mask">Standalone Human-Visible Masks</button>
+                    <button class="tab-btn" data-tab="tab-alignment">SIFT Keypoint Matching</button>
+                    <button class="tab-btn" data-tab="tab-raw">Aligned Raw Stream</button>
+                </div>
+
+                <!-- View Container -->
+                <div class="view-container">
+                    <!-- Tab 1: Semantic Overlay -->
+                    <div class="tab-content active" id="tab-semantic">
+                        <div class="split-view">
+                            <div class="view-pane">
+                                <div class="pane-header">Pre-Disaster (SIFT Warped)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-sem-before" src="" alt="Aligned Before Image Overlay">
+                                    <div class="placeholder-text">Upload pair to view aligned pre-disaster overlay</div>
+                                </div>
+                            </div>
+                            <div class="view-pane">
+                                <div class="pane-header">Post-Disaster (Un-Warped Reference)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-sem-after" src="" alt="Reference After Image Overlay">
+                                    <div class="placeholder-text">Upload pair to view post-disaster overlay</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Standalone Human-Visible Masks -->
+                    <div class="tab-content" id="tab-standalone-mask">
+                        <div class="split-view">
+                            <div class="view-pane">
+                                <div class="pane-header">Color-Mapped Semantic Mask (Vibrant RGB)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-mask-rgb" src="" alt="Standalone RGB Semantic Mask">
+                                    <div class="placeholder-text">Human-visible RGB mask will appear here</div>
+                                </div>
+                            </div>
+                            <div class="view-pane">
+                                <div class="pane-header">Scaled Grayscale Mask (Human-Visible 0–250)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-mask-scaled" src="" alt="Scaled Grayscale Semantic Mask">
+                                    <div class="placeholder-text">Scaled grayscale mask will appear here</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: SIFT Keypoint Matches -->
+                    <div class="tab-content" id="tab-alignment">
+                        <div class="single-view">
+                            <div class="pane-header">SIFT Keypoint Correspondences & RANSAC Homography</div>
+                            <div class="image-wrapper">
+                                <img id="img-matches" src="" alt="SIFT Feature Matches">
+                                <div class="placeholder-text">Keypoint correspondences will appear here</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Aligned Raw Stream -->
+                    <div class="tab-content" id="tab-raw">
+                        <div class="split-view">
+                            <div class="view-pane">
+                                <div class="pane-header">Pre-Disaster Aligned (Clean RGB)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-raw-before" src="" alt="Clean Before Aligned">
+                                </div>
+                            </div>
+                            <div class="view-pane">
+                                <div class="pane-header">Post-Disaster Reference (Clean RGB)</div>
+                                <div class="image-wrapper">
+                                    <img id="img-raw-after" src="" alt="Clean After Reference">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

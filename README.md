@@ -7,4 +7,7 @@
 - Video Repository: [OneDrive](https://mailmissouri-my.sharepoint.com/:f:/g/personal/pym95_umsystem_edu/IgAA0lfRJNxQTJLE29OcqkwNAaJOAk59_0XputViTlw9j_A?e=OIrsse)
 - Reconstruction Repo (I will add more later): [OneDrive](https://mailmissouri-my.sharepoint.com/:f:/g/personal/mjhf89_umsystem_edu/IgC0zg4BdmX1S5VaaQU9zk6qATupFkGHiZSfzWgjFDgHOGg?e=aZeCbN)
 ## Other Resources
-- This repo also has the alignment program in scripts/alignment and the training scripts used in scripts/training
+- This repo also has the alignment program in scripts/alignment
+- Several training scripts used are in scripts/training
+- Weights and training logs can be found in training_logs or weights
+- If you need any information about the scripts or their requirements let me know.
